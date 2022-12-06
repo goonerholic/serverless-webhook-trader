@@ -1,0 +1,74 @@
+service: serverless-tv-trader
+frameworkVersion: '3'
+
+package:
+  individually: true
+
+plugins:
+  - serverless-plugin-typescript
+  - serverless-dotenv-plugin
+  - serverless-offline
+
+provider:
+  name: aws
+  region: ap-northeast-2
+  stage: prod
+  profile: ${opt:profile, 'tv-trader'}
+  runtime: nodejs16.x
+  apiName: serverless-tv-trader
+  lambdaHashingVersion: 20201221
+  environment:
+    STAGE: ${self:provider.stage}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:DescribeTable
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource: !GetAtt [StrategyConfig, Arn]
+        - Effect: Allow
+          Action:
+            - events:*
+          Resource: arn:aws:events:ap-northeast-2:353848885852:rule/*
+
+functions:
+  tv-trader:
+    handler: src/main.handler
+    events:
+      - http:
+          path: /{proxy+}
+          method: ANY
+          cors: true
+  # watcher:
+  #   handler: src/watcher/index.handler
+  #   timeout: 300
+  #   events:
+  #     - schedule:
+  #         rate: rate(1 minute)
+  #         enabled: true
+
+resources:
+  Resources:
+    StrategyConfig:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: StrategyConfig
+        AttributeDefinitions:
+          - AttributeName: PK
+            AttributeType: S
+          - AttributeName: SK
+            AttributeType: S
+        KeySchema:
+          - AttributeName: PK
+            KeyType: HASH
+          - AttributeName: SK
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST
+
+useDotenv: true
